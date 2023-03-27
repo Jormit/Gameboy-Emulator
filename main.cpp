@@ -2404,7 +2404,7 @@ void ADD_A_L() //    0x85
 }
 void ADD_A_HLp() //    0x86
 {
-    add_byte(memory[registers.hl]);
+    add_byte(read_byte(registers.hl));
 }
 void ADD_A_A() //    0x87
 {
@@ -2436,7 +2436,7 @@ void ADC_A_L() //    0x8d
 }
 void ADC_A_HLp() //    0x8e
 {
-    adc(memory[registers.hl]);
+    adc(read_byte(registers.hl));
 }
 void ADC_A_A() //    0x8f
 {
@@ -2468,7 +2468,7 @@ void SUB_L() //    0x95
 }
 void SUB_HLp() //    0x96
 {
-    sub_byte(memory[registers.hl]);
+    sub_byte(read_byte(registers.hl));
 }
 void SUB_A() //    0x97
 {
@@ -2500,7 +2500,7 @@ void SBC_A_L() //    0x9d
 }
 void SBC_A_HLp() //    0x9e
 {
-    Sbc(memory[registers.hl]);
+    Sbc(read_byte(registers.hl));
 }
 void SBC_A_A() //    0x9f
 {
@@ -2532,7 +2532,7 @@ void AND_L() //    0xa5
 }
 void AND_HLp() //    0xa6
 {
-    And(memory[registers.hl]);
+    And(read_byte(registers.hl));
 }
 void AND_A() //    0xa7
 {
@@ -2564,7 +2564,7 @@ void XOR_L() //    0xad
 }
 void XOR_HLp() //    0xae
 {
-    Xor(memory[registers.hl]);
+    Xor(read_byte(registers.hl));
 }
 void XOR_A() //    0xaf
 {
@@ -2596,7 +2596,7 @@ void OR_L() //    0xb5
 }
 void OR_HLp() //    0xb6
 {
-    Or(memory[registers.hl]);
+    Or(read_byte(registers.hl));
 }
 void OR_A() //    0xb7
 {
@@ -2917,7 +2917,7 @@ void RLC_L() //    0x5
 }
 void RLC_HLp() //    0x6
 {
-    memory[registers.hl] = RotByteLeft(memory[registers.hl]);
+    write_byte(RotByteLeft(read_byte(registers.hl)), registers.hl);
 }
 void RLC_A() //    0x7
 {
@@ -2949,7 +2949,7 @@ void RRC_L() //    0xd
 }
 void RRC_HLp() //    0xe
 {
-    memory[registers.hl] = RotByteRight(memory[registers.hl]);
+    write_byte(RotByteRight(read_byte(registers.hl)), registers.hl);
 }
 void RRC_A() //    0xf
 {
@@ -2981,7 +2981,7 @@ void RL_L() //    0x15
 }
 void RL_HLp() //    0x16
 {
-    memory[registers.hl] = Rotate_Left_Carry(memory[registers.hl]);
+    write_byte(Rotate_Left_Carry(read_byte(registers.hl)), registers.hl);
 }
 void RL_A() //    0x17
 {
@@ -3013,7 +3013,7 @@ void RR_L() //    0x1d
 }
 void RR_HLp() //    0x1e
 {
-    memory[registers.hl] = Rotate_Right_Carry(memory[registers.hl]);
+    write_byte(Rotate_Right_Carry(read_byte(registers.hl)), registers.hl);
 }
 void RR_A() //    0x1f
 {
@@ -3045,7 +3045,7 @@ void SLA_L() //    0x25
 }
 void SLA_HLp() //    0x26
 {
-    memory[registers.hl] = Shift_Left(memory[registers.hl]);
+    write_byte(Shift_Left(read_byte(registers.hl)), registers.hl);
 }
 void SLA_A() //    0x27
 {
@@ -3077,7 +3077,7 @@ void SRA_L() //    0x2d
 }
 void SRA_HLp() //    0x2e
 {
-    memory[registers.hl] = Shift_Right_A(memory[registers.hl]);
+    write_byte(Shift_Right_A(read_byte(registers.hl)), registers.hl);
 }
 void SRA_A() //    0x2f
 {
@@ -3109,7 +3109,7 @@ void SWAP_L() //    0x35
 }
 void SWAP_HLp() //    0x36
 {
-    memory[registers.hl] = Swap(memory[registers.hl]);
+    write_byte(Swap(read_byte(registers.hl)), registers.hl);
 }
 void SWAP_A() //    0x37
 {
@@ -3141,7 +3141,7 @@ void SRL_L() //    0x3d
 }
 void SRL_HLp() //    0x3e
 {
-    memory[registers.hl] = Shift_Right(memory[registers.hl]);
+    write_byte(Shift_Right(read_byte(registers.hl)), registers.hl);
 }
 void SRL_A() //    0x3f
 {
@@ -3173,7 +3173,7 @@ void BIT_0_L() //    0x45
 }
 void BIT_0_HLp() //    0x46
 {
-    Bit_Test(0, memory[registers.hl]);
+    Bit_Test(0, read_byte(registers.hl));
 }
 void BIT_0_A() //    0x47
 {
@@ -3205,7 +3205,7 @@ void BIT_1_L() //    0x4d
 }
 void BIT_1_HLp() //    0x4e
 {
-    Bit_Test(1, memory[registers.hl]);
+    Bit_Test(1, read_byte(registers.hl));
 }
 void BIT_1_A() //    0x4f
 {
@@ -3237,7 +3237,7 @@ void BIT_2_L() //    0x55
 }
 void BIT_2_HLp() //    0x56
 {
-    Bit_Test(2, memory[registers.hl]);
+    Bit_Test(2, read_byte(registers.hl));
 }
 void BIT_2_A() //    0x57
 {
@@ -3269,7 +3269,7 @@ void BIT_3_L() //    0x5d
 }
 void BIT_3_HLp() //    0x5e
 {
-    Bit_Test(3, memory[registers.hl]);
+    Bit_Test(3, read_byte(registers.hl));
 }
 void BIT_3_A() //    0x5f
 {
@@ -3301,7 +3301,7 @@ void BIT_4_L() //    0x65
 }
 void BIT_4_HLp() //    0x66
 {
-    Bit_Test(4, memory[registers.hl]);
+    Bit_Test(4, read_byte(registers.hl));
 }
 void BIT_4_A() //    0x67
 {
@@ -3333,7 +3333,7 @@ void BIT_5_L() //    0x6d
 }
 void BIT_5_HLp() //    0x6e
 {
-    Bit_Test(5, memory[registers.hl]);
+    Bit_Test(5, read_byte(registers.hl));
 }
 void BIT_5_A() //    0x6f
 {
@@ -3365,7 +3365,7 @@ void BIT_6_L() //    0x75
 }
 void BIT_6_HLp() //    0x76
 {
-    Bit_Test(6, memory[registers.hl]);
+    Bit_Test(6, read_byte(registers.hl));
 }
 void BIT_6_A() //    0x77
 {
@@ -3397,7 +3397,7 @@ void BIT_7_L() //    0x7d
 }
 void BIT_7_HLp() //    0x7e
 {
-    Bit_Test(7, memory[registers.hl]);
+    Bit_Test(7, read_byte(registers.hl));
 }
 void BIT_7_A() //    0x7f
 {
@@ -3429,7 +3429,7 @@ void RES_0_L() //    0x85
 }
 void RES_0_HLp() //    0x86
 {
-    memory[registers.hl] = Res(0, memory[registers.hl]);
+    write_byte(Res(0, read_byte(registers.hl)), registers.hl);
 }
 void RES_0_A() //    0x87
 {
@@ -3461,7 +3461,7 @@ void RES_1_L() //    0x8d
 }
 void RES_1_HLp() //    0x8e
 {
-    memory[registers.hl] = Res(1, memory[registers.hl]);
+    write_byte(Res(1, read_byte(registers.hl)), registers.hl);
 }
 void RES_1_A() //    0x8f
 {
@@ -3493,7 +3493,7 @@ void RES_2_L() //    0x95
 }
 void RES_2_HLp() //    0x96
 {
-    memory[registers.hl] = Res(2, memory[registers.hl]);
+    write_byte(Res(2, read_byte(registers.hl)), registers.hl);
 }
 void RES_2_A() //    0x97
 {
@@ -3525,7 +3525,7 @@ void RES_3_L() //    0x9d
 }
 void RES_3_HLp() //    0x9e
 {
-    memory[registers.hl] = Res(3, memory[registers.hl]);
+    write_byte(Res(3, read_byte(registers.hl)), registers.hl);
 }
 void RES_3_A() //    0x9f
 {
@@ -3557,7 +3557,7 @@ void RES_4_L() //    0xa5
 }
 void RES_4_HLp() //    0xa6
 {
-    memory[registers.hl] = Res(4, memory[registers.hl]);
+    write_byte(Res(4, read_byte(registers.hl)), registers.hl);
 }
 void RES_4_A() //    0xa7
 {
@@ -3589,7 +3589,7 @@ void RES_5_L() //    0xad
 }
 void RES_5_HLp() //    0xae
 {
-    memory[registers.hl] = Res(5, memory[registers.hl]);
+    write_byte(Res(5, read_byte(registers.hl)), registers.hl);
 }
 void RES_5_A() //    0xaf
 {
@@ -3621,7 +3621,7 @@ void RES_6_L() //    0xb5
 }
 void RES_6_HLp() //    0xb6
 {
-    memory[registers.hl] = Res(6, memory[registers.hl]);
+    write_byte(Res(6, read_byte(registers.hl)), registers.hl);
 }
 void RES_6_A() //    0xb7
 {
@@ -3653,7 +3653,7 @@ void RES_7_L() //    0xbd
 }
 void RES_7_HLp() //    0xbe
 {
-    memory[registers.hl] = Res(7, memory[registers.hl]);
+    write_byte(Res(7, read_byte(registers.hl)), registers.hl);
 }
 void RES_7_A() //    0xbf
 {
@@ -3685,7 +3685,7 @@ void SET_0_L() //    0xc5
 }
 void SET_0_HLp() //    0xc6
 {
-    memory[registers.hl] = Set(0, memory[registers.hl]);
+    write_byte(Set(0, read_byte(registers.hl)), registers.hl);
 }
 void SET_0_A() //    0xc7
 {
@@ -3717,7 +3717,7 @@ void SET_1_L() //    0xcd
 }
 void SET_1_HLp() //    0xce
 {
-    memory[registers.hl] = Set(1, memory[registers.hl]);
+    write_byte(Set(1, read_byte(registers.hl)), registers.hl);
 }
 void SET_1_A() //    0xcf
 {
@@ -3749,7 +3749,7 @@ void SET_2_L() //    0xd5
 }
 void SET_2_HLp() //    0xd6
 {
-    memory[registers.hl] = Set(2, memory[registers.hl]);
+    write_byte(Set(2, read_byte(registers.hl)), registers.hl);
 }
 void SET_2_A() //    0xd7
 {
@@ -3781,7 +3781,7 @@ void SET_3_L() //    0xdd
 }
 void SET_3_HLp() //    0xde
 {
-    memory[registers.hl] = Set(3, memory[registers.hl]);
+    write_byte(Set(3, read_byte(registers.hl)), registers.hl);
 }
 void SET_3_A() //    0xdf
 {
@@ -3813,7 +3813,7 @@ void SET_4_L() //    0xe5
 }
 void SET_4_HLp() //    0xe6
 {
-    memory[registers.hl] = Set(4, memory[registers.hl]);
+    write_byte(Set(4, read_byte(registers.hl)), registers.hl);
 }
 void SET_4_A() //    0xe7
 {
@@ -3845,7 +3845,7 @@ void SET_5_L() //    0xed
 }
 void SET_5_HLp() //    0xee
 {
-    memory[registers.hl] = Set(5, memory[registers.hl]);
+    write_byte(Set(5, read_byte(registers.hl)), registers.hl);
 }
 void SET_5_A() //    0xef
 {
@@ -3877,7 +3877,7 @@ void SET_6_L() //    0xf5
 }
 void SET_6_HLp() //    0xf6
 {
-    memory[registers.hl] = Set(6, memory[registers.hl]);
+    write_byte(Set(6, read_byte(registers.hl)), registers.hl);
 }
 void SET_6_A() //    0xf7
 {
@@ -3909,7 +3909,7 @@ void SET_7_L() //    0xfd
 }
 void SET_7_HLp() //    0xfe
 {
-    memory[registers.hl] = Set(7, memory[registers.hl]);
+    write_byte(Set(7, read_byte(registers.hl)), registers.hl);
 }
 void SET_7_A() //    0xff
 {
