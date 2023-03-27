@@ -46,10 +46,11 @@ int scanline_count;
 bool IME = 0; //Interrupt Master Enable Flag.
 
 //Allocating Space for Memory.
-uint8_t memory[65536];
-
-uint8_t temp_for_boot[0x100];
-
+uint8_t memory[65536] = {0};
+uint8_t* rom;
+uint8_t* boot_rom;
+bool enable_boot = true;
+uint8_t bank_offset = 0;
 uint8_t Tile_Map[384][8][8]; //Stores colors of individual pixels in each tile.
 
 uint8_t JoypadState = 0xFF;
@@ -152,7 +153,6 @@ SDL_Texture* texture;
 //Function Protoypes.
 void read_rom(char *filename);
 void load_bootrom(char* filename);
-void restore_rom();
 
 uint8_t key_state(); // Sets up FF00 depending on key presses.
 void key_press(int key); // Does a key press
@@ -788,7 +788,7 @@ const uint8_t Cycles[256] = {
 };
 
 int main(int argc, char** argv) {
-    read_rom("../../../roms/DrMario.gb");
+    read_rom("../../../roms/Tetris.gb");
     load_bootrom("../../../roms/DMG_BOOT.bin");
     setup_color_pallete();
     initialize_sdl();
@@ -802,12 +802,10 @@ int main(int argc, char** argv) {
             // Remove bootrom after it has run
             if (registers.pc == 0x100) 
             { 
-                restore_rom(); 
-                memory[0xFF80] = 0; 
+                enable_boot = false;
             }
-
             cpu_cycle();                             
-            update_timers();        
+            update_timers();
             increment_scan_line();
             interupts();                   
         }
@@ -824,11 +822,27 @@ int main(int argc, char** argv) {
             handle_input();
         }
     }
-
     shutdown();
 }
 
 uint8_t read_byte(uint16_t location) {
+    if (enable_boot) 
+    {
+        if (location < 0x100) 
+        {
+            return boot_rom[location];
+        }        
+    }
+
+    if (location < 0x4000) 
+    {
+        return rom[location];
+    } 
+    if (location < 0x8000)
+    {
+        return rom[location + 0 * 0x4000];
+    }
+
     if (location == 0xFF00) { //Key interupt.
         return key_state();
     }
@@ -836,6 +850,9 @@ uint8_t read_byte(uint16_t location) {
 }
 
 void write_byte(uint8_t data, uint16_t location) {
+    if (location >= 0x2000 && location <= 0x3FFF) {
+        bank_offset = data - 1;
+    }
     if (location < 0x8000) {
         return;
     }
@@ -1119,10 +1136,17 @@ void read_rom(char *filename) {
     file.seekg(0, std::ios::beg);
         
     std::vector<char> buffer(size);
+    rom = (uint8_t*) malloc(size * sizeof(uint8_t));
     if (file.read(buffer.data(), size))
     {        
-        for (auto i = 0; i < size; ++i) {
-            memory[i] = (uint8_t) buffer[i];
+        for (auto i = 0; i < size; ++i) 
+        {
+            rom[i] = (uint8_t) buffer[i];
+            if (size < 0xFFFF) 
+            {
+                memory[i] = (uint8_t) buffer[i];
+            }
+            
         }
         cout << "Loaded " << filename << endl;
     } 
@@ -1139,24 +1163,19 @@ void load_bootrom(char* filename) {
     file.seekg(0, std::ios::beg);
 
     std::vector<char> buffer(size);
+    boot_rom = (uint8_t*) malloc(size * sizeof(uint8_t));
     if (file.read(buffer.data(), size))
     {
         cout << "Loaded " << filename << endl;
-        for (int i = 0; i < size; ++i) {
-            temp_for_boot[i] = memory[i];
-            memory[i] = (uint8_t) buffer[i];
-        }        
+        for (int i = 0; i < size; ++i) 
+        {
+            boot_rom[i] = (uint8_t) buffer[i];
+        }
     }
     else
     {
         cerr << "Invalid Bootrom File!" << endl;
         exit(1);
-    }
-}
-
-void restore_rom() {
-    for (int i = 0; i < 0x100; ++i) {
-        memory[i] = temp_for_boot[i];
     }
 }
 
@@ -1187,7 +1206,7 @@ void print_registers()
 
 void cpu_cycle() 
 {
-    uint8_t opcode = memory[registers.pc];
+    uint8_t opcode = read_byte(registers.pc);
 
     if (instructions[opcode].length == 0) 
     {
@@ -1201,7 +1220,7 @@ void cpu_cycle()
     }
     else if (instructions[opcode].length == 2) 
     {
-        Operand8 = memory[registers.pc + 1];
+        Operand8 = read_byte(registers.pc + 1);
         registers.pc += 2;
         if (opcode == 0xCB) 
         {
@@ -1214,7 +1233,7 @@ void cpu_cycle()
     }
     else if (instructions[opcode].length == 3) 
     {
-        Operand16 = (memory[registers.pc + 2] << 8) + memory[registers.pc + 1];
+        Operand16 = (read_byte(registers.pc + 2) << 8) + read_byte(registers.pc + 1);
         registers.pc += 3;
         ((void (*)(void))instructions[opcode].fcnPtr)();     
     }
