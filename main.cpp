@@ -44,10 +44,10 @@ struct RGB
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-} frameBuffer[23040], colorPalette[4];
+} frame_buffer[23040], color_palette[4];
 
 // Joypad Variable
-uint8_t JoypadState = 0xFF;
+uint8_t joypad_state = 0xFF;
 
 // Memory Variables
 /*
@@ -220,7 +220,7 @@ uint16_t Pop(); //Stack value off stack, stores it and increments stack pointer.
 
 // Bit tests.
 uint8_t Bit_Test(uint8_t bit, uint8_t number);
-uint8_t Test_bit(uint8_t bit, uint8_t number); //Doesn't set flags.
+uint8_t test_bit(uint8_t bit, uint8_t number); //Doesn't set flags.
 
 // Bit sets.
 uint8_t Res(uint8_t bit, uint8_t number); //Resets specified bit.
@@ -906,7 +906,7 @@ void increment_scan_line()
 {
     set_lcd_status();
 
-    if (Test_bit(7, read_byte(0xFF40)))
+    if (test_bit(7, read_byte(0xFF40)))
     {
         scanline_count -= last_cycles;
     }
@@ -933,12 +933,12 @@ void increment_scan_line()
 void set_lcd_status() 
 {
     uint8_t currentline = read_byte(0xFF44);
-    uint8_t currentmode = read_byte(0xFF41) & 0x3;
-    uint8_t mode = 0;
-    bool InteruptRequest = false;
+    uint8_t current_mode = read_byte(0xFF41) & 0x3;
+    uint8_t new_mode = 0;
+    bool interupt_request = false;
 
     uint8_t status = read_byte(0xFF41);
-    if (!Test_bit(7, read_byte(0xFF40)))
+    if (!test_bit(7, read_byte(0xFF40)))
     {
         // set the mode to 0 during lcd disabled and reset scanline
         scanline_count = 456;
@@ -952,46 +952,49 @@ void set_lcd_status()
     // Check if in VBLANK (mode 1) 
     if (currentline >= 144)
     { 
-        mode = 1; //Set status to 01.
+        new_mode = 1; //Set status to 01.
         status = Set(0, status);
         status = Res(1, status);
-        InteruptRequest = Test_bit(4, status);
+        interupt_request = test_bit(4, status);
     }
     else
     {
         // Check if Searching OAM (mode 2)
         if (scanline_count >= 376)
         {
-            mode = 2;
+            new_mode = 2;
             status = Set(1, status);
             status = Res(0, status);
-            InteruptRequest = Test_bit(5, status);
+            interupt_request = test_bit(5, status);
         }
         // Check if Transferring Data to LCD Controller (mode 3)
         else if (scanline_count >= 204)
         {
-            mode = 3;
+            new_mode = 3;
             status = Set(1, status);
             status = Set(0, status);
         }
         // Check if in HBLANK (mode 0)
         else 
         {
-            mode = 0;
+            new_mode = 0;
             status = Res(1, status);
             status = Res(0, status);
-            InteruptRequest = Test_bit(3, status);
+            interupt_request = test_bit(3, status);
         }
     }
 
-    if (InteruptRequest && (mode != currentmode)) 
+    // Interupt on changing mode
+    if (interupt_request && (new_mode != current_mode)) 
     {
         set_interupt(1);
     } 
+
+    // Handle Coincidence Interupt
     if (read_byte(0xFF44) == read_byte(0xFF45))
     {
         status = Set(2, status);
-        if (Test_bit(6, status))
+        if (test_bit(6, status))
         {
             set_interupt(1);
         }
@@ -1052,42 +1055,32 @@ void key_press(int key)
 {
     bool previouslyUnset = false;
 
-    if (!Test_bit(key, JoypadState)) 
+    if (!test_bit(key, joypad_state)) 
     {
         previouslyUnset = true;
     }
 
-    JoypadState = Res(key, JoypadState);
+    joypad_state = Res(key, joypad_state);
 
-    bool button;
-
-    // Standard button.
-    if (key > 3) 
-    { 
-        button = true;
-    }
-    // Directional button.
-    else 
-    { 
-        button = false;
-    }
-    bool requestInterupt = false;
+    // Standard or directional button?
+    bool button = key > 3;    
 
     // Check which keys game is interested in and perform interupts
-    if (button && !Test_bit(5, read_byte(0xFF00)))
+    bool request_interupt = false;
+    if (button && !test_bit(5, read_byte(0xFF00)))
     {
-        requestInterupt = true;
+        request_interupt = true;
     }
-    else if (!button && !Test_bit(4, read_byte(0xFF00)))
+    else if (!button && !test_bit(4, read_byte(0xFF00)))
     {
-        requestInterupt = true;
+        request_interupt = true;
     }
 
-    if (requestInterupt && !previouslyUnset) set_interupt(4);
+    if (request_interupt && !previouslyUnset) set_interupt(4);
 }
 
 void key_release(int key) {
-    JoypadState = Set(key, JoypadState);
+    joypad_state = Set(key, joypad_state);
 }
 
 uint8_t key_state() 
@@ -1096,16 +1089,16 @@ uint8_t key_state()
     res ^= 0xFF;
 
     // Are we interested in the standard buttons?
-    if (!Test_bit(4, res))
+    if (!test_bit(4, res))
     {
-        BYTE topJoypad = JoypadState >> 4;
+        BYTE topJoypad = joypad_state >> 4;
         topJoypad |= 0xF0; // turn the top 4 bits on
         res &= topJoypad; // show what buttons are pressed
     }
     // Or directional buttons?
-    else if (!Test_bit(5, res))//directional buttons
+    else if (!test_bit(5, res))//directional buttons
     {
-        BYTE bottomJoypad = JoypadState & 0xF;
+        BYTE bottomJoypad = joypad_state & 0xF;
         bottomJoypad |= 0xF0;
         res &= bottomJoypad;
     }
@@ -1131,7 +1124,7 @@ void update_timers() {
     }
 
     // Tick Main Timer
-    if (Test_bit(2, read_byte(0xFF07)))
+    if (test_bit(2, read_byte(0xFF07)))
     {
         timer_count += last_cycles;
 
@@ -1168,24 +1161,24 @@ void setup_color_pallete() {
 
         switch (color) {
         case (0x0):
-            colorPalette[i].red = 255;
-            colorPalette[i].green = 255;
-            colorPalette[i].blue = 255;
+            color_palette[i].red = 255;
+            color_palette[i].green = 255;
+            color_palette[i].blue = 255;
             break;
         case (0x1):
-            colorPalette[i].red = 180;
-            colorPalette[i].green = 180;
-            colorPalette[i].blue = 180;
+            color_palette[i].red = 180;
+            color_palette[i].green = 180;
+            color_palette[i].blue = 180;
             break;
         case (0x2):
-            colorPalette[i].red = 110;
-            colorPalette[i].green = 110;
-            colorPalette[i].blue = 110;
+            color_palette[i].red = 110;
+            color_palette[i].green = 110;
+            color_palette[i].blue = 110;
             break;
         case (0x3):
-            colorPalette[i].red = 0;
-            colorPalette[i].green = 0;
-            colorPalette[i].blue = 0;
+            color_palette[i].red = 0;
+            color_palette[i].green = 0;
+            color_palette[i].blue = 0;
             break;
         }
     }
@@ -1335,15 +1328,14 @@ void cpu_cycle()
 void interupts() {
     if (IME)
     {
-        uint8_t requestFlag = read_byte(0xFF0F);
-        if (requestFlag)
+        uint8_t request_flag = read_byte(0xFF0F);
+        if (read_byte(0xFF0F))
         {
             for (int bit = 0; bit < 8; bit++)
             {
-                if (requestFlag & (0x1 << bit))
+                if (request_flag & (0x1 << bit))
                 {
-                    BYTE enabledReg = read_byte(0xFFFF);
-                    if (enabledReg & (0x1 << bit))
+                    if (read_byte(0xFFFF) & (0x1 << bit))
                     {
                         do_interupt(bit);
                     }
@@ -1387,7 +1379,7 @@ void load_tiles(){
             }
             Rel_y++;       
         }
-    s++;
+        s++;
     }
 }
 
@@ -1398,9 +1390,9 @@ void render_all_tiles() {
         {
             for (int y = 0; y < 8; y++) 
             {
-                frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red   = colorPalette[Tile_Map[i][x][y]].red;
-                frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[i][x][y]].green;
-                frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue  = colorPalette[Tile_Map[i][x][y]].blue;
+                frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red   = color_palette[Tile_Map[i][x][y]].red;
+                frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = color_palette[Tile_Map[i][x][y]].green;
+                frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue  = color_palette[Tile_Map[i][x][y]].blue;
             }
         }
     }
@@ -1409,7 +1401,7 @@ void render_all_tiles() {
 void render_tile_map() 
 {   
     // Check if LCD is enabled
-    if (!Test_bit(7, read_byte(0xFF40))) 
+    if (!test_bit(7, read_byte(0xFF40))) 
     {
         return;
     }
@@ -1425,13 +1417,13 @@ void render_tile_map()
     uint8_t WindowX = read_byte(0xFF4B);
 
     // Which tile data?
-    if (!Test_bit(4, read_byte(0xFF40)))
+    if (!test_bit(4, read_byte(0xFF40)))
     {
         unsig = false;
     }
 
     // Check which tilemap to render.
-    if (Test_bit(3, read_byte(0xFF40)))
+    if (test_bit(3, read_byte(0xFF40)))
     {
         location = 0x9C00;
     }
@@ -1449,9 +1441,9 @@ void render_tile_map()
             {
                 for (int y = 0; y < 8; y++) 
                 {
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = color_palette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = color_palette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = color_palette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
                 }
             }
             Line_Count++;
@@ -1469,9 +1461,9 @@ void render_tile_map()
             {
                 for (int y = 0; y < 8; y++) 
                 {
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = color_palette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = color_palette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
+                    frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = color_palette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
                 }
             }
             Line_Count++;
@@ -1486,7 +1478,7 @@ void render_tile_map()
 
 void render_sprites() 
 {
-    bool use8x16 = Test_bit(2, read_byte(0xFF40)) != 0; //Check if sprites are 8x16 or 8x8.
+    bool use8x16 = test_bit(2, read_byte(0xFF40)) != 0; //Check if sprites are 8x16 or 8x8.
 
     for (int sprite = 0; sprite < 40; sprite++)
     {
@@ -1496,8 +1488,8 @@ void render_sprites()
         uint8_t location = read_byte(0xFE00 + index + 2);
         uint8_t attributes = read_byte(0xFE00 + index + 3);
 
-        bool yflip = Test_bit(6, attributes);
-        bool xflip = Test_bit(5, attributes);
+        bool yflip = test_bit(6, attributes);
+        bool xflip = test_bit(5, attributes);
 
         if (ypos == 0 || xpos == 0 || ypos >= 160 || xpos >= 168) {
             continue;
@@ -1509,19 +1501,19 @@ void render_sprites()
             {
                 if (Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)])
                 {
-                    frameBuffer[(xpos + x + (y + ypos) * 160) % 23040].red = colorPalette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].red;
-                    frameBuffer[(xpos + x + (y + ypos) * 160) % 23040].green = colorPalette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].green;
-                    frameBuffer[(xpos + x + (y + ypos) * 160) % 23040].blue = colorPalette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].blue;
+                    frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].red = color_palette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].red;
+                    frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].green = color_palette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].green;
+                    frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].blue = color_palette[Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]].blue;
                 }
             }
         }
     }
 }
 
-// Copies frameBuffer to texture. Copies texture to renderer and then displays it.
+// Copies frame_buffer to texture. Copies texture to renderer and then displays it.
 void display_buffer() 
 { 
-    SDL_UpdateTexture(texture, NULL, frameBuffer, SCREEN_WIDTH * sizeof(uint8_t) * 3);
+    SDL_UpdateTexture(texture, NULL, frame_buffer, SCREEN_WIDTH * sizeof(uint8_t) * 3);
     SDL_RenderClear(renderer);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
@@ -1897,7 +1889,7 @@ uint8_t Bit_Test(uint8_t bit, uint8_t number)
     else { Set_Z_Flag(); return 0; }
 }
 
-uint8_t Test_bit(uint8_t bit, uint8_t number) 
+uint8_t test_bit(uint8_t bit, uint8_t number) 
 {
     uint8_t bitindex = 0x1 << bit;
     if (number & bitindex) { return 1; } //Set Zero Flag.
@@ -2108,13 +2100,13 @@ void DAA() //    0x27
     {
         unsigned short s = registers.a;
 
-        if (Test_bit(6, registers.f)) {
-            if (Test_bit(5, registers.f)) s = (s - 0x06) & 0xFF;
-            if (Test_bit(4, registers.f)) s -= 0x60;
+        if (test_bit(6, registers.f)) {
+            if (test_bit(5, registers.f)) s = (s - 0x06) & 0xFF;
+            if (test_bit(4, registers.f)) s -= 0x60;
         }
         else {
-            if (Test_bit(5, registers.f) || (s & 0xF) > 9) s += 0x06;
-            if (Test_bit(4, registers.f) || s > 0x9F) s += 0x60;
+            if (test_bit(5, registers.f) || (s & 0xF) > 9) s += 0x06;
+            if (test_bit(4, registers.f) || s > 0x9F) s += 0x60;
         }
 
         registers.a = s;
