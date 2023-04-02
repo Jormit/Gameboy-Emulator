@@ -787,7 +787,7 @@ const uint8_t Cycles[256] = {
 
 int main(int argc, char** argv) 
 {
-    read_rom("../../../roms/Tetris.gb");
+    read_rom("../../../roms/Super Mario Land.gb");
     load_bootrom("../../../roms/DMG_BOOT.bin");
     detect_banking_mode();
 
@@ -939,7 +939,7 @@ void set_lcd_status()
     uint8_t status = read_byte(0xFF41);
     if (!Test_bit(7, read_byte(0xFF40)))
     {
-        // set the mode to 1 during lcd disabled and reset scanline
+        // set the mode to 0 during lcd disabled and reset scanline
         scanline_count = 456;
         memory[0xFF44] = 0;
         status = Res(1, status);
@@ -948,7 +948,7 @@ void set_lcd_status()
         return;
     }
 
-    // IF in VBLANK. 
+    // Check if in VBLANK (mode 1) 
     if (currentline >= 144)
     { 
         mode = 1; //Set status to 01.
@@ -958,27 +958,25 @@ void set_lcd_status()
     }
     else
     {
-        int mode2bounds = 376;
-        int mode3bounds = 204;
-
-        if (scanline_count >= mode2bounds) 
+        // Check if Searching OAM (mode 2)
+        if (scanline_count >= 376)
         {
-            mode = 2; //Set status to 10.
+            mode = 2;
             status = Set(1, status);
             status = Res(0, status);
             InteruptRequest = Test_bit(5, status);
         }
-
-        else if (scanline_count >= mode3bounds) 
+        // Check if Transferring Data to LCD Controller (mode 3)
+        else if (scanline_count >= 204)
         {
-            mode = 3; //Set status to 11.
+            mode = 3;
             status = Set(1, status);
             status = Set(0, status);
         }
-
+        // Check if in HBLANK (mode 0)
         else 
         {
-            mode = 0; //Set status to 00.
+            mode = 0;
             status = Res(1, status);
             status = Res(0, status);
             InteruptRequest = Test_bit(3, status);
@@ -1074,7 +1072,7 @@ void key_press(int key)
     }
     bool requestInterupt = false;
 
-    //Check which keys game is interested in.
+    // Check which keys game is interested in and perform interupts
     if (button && !Test_bit(5, read_byte(0xFF00)))
     {
         requestInterupt = true;
@@ -1094,7 +1092,6 @@ void key_release(int key) {
 uint8_t key_state() 
 {
     uint8_t res = memory[0xFF00];
-    // flip all the bits
     res ^= 0xFF;
 
     // Are we interested in the standard buttons?
@@ -1407,7 +1404,8 @@ void render_all_tiles() {
 
 //Renders the Current Tilemap.
 void render_tile_map() 
-{
+{   
+    // Check if LCD is enabled
     if (!Test_bit(7, read_byte(0xFF40))) 
     {
         return;
@@ -1430,7 +1428,7 @@ void render_tile_map()
     }
 
     // Check which tilemap to render.
-    if (read_byte(0xFF40) & 0x8)
+    if (Test_bit(3, read_byte(0xFF40)))
     {
         location = 0x9C00;
     }
