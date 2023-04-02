@@ -20,15 +20,9 @@ const int SCREEN_HEIGHT = 144;
 #define CLOCKSPEED 4194304 
 #define CYCLES_PER_FRAME  69905
 
-//Timers.
-#define TIMA 0xFF05
-#define TMA 0xFF06
-#define TMC 0xFF07 
-
-int m_TimerCounter = 1024;
-int TimerVariable = 0;
-int CurrentClockSpeed = 1024;
-int DividerVariable = 0;
+int timer_count = 0;
+uint16_t curr_clock_speed = 1024;
+int divider_count = 0;
 
 // Operands (either one depending on size).
 uint8_t Operand8;
@@ -38,7 +32,7 @@ uint16_t Operand16;
 long int cycle_count;
 
 // Stores amount of cycles in last instruction.
-int Last_cycles;
+int last_cycles;
 
 bool IME = 0; //Interrupt Master Enable Flag.
 
@@ -787,7 +781,7 @@ const uint8_t Cycles[256] = {
 
 int main(int argc, char** argv) 
 {
-    read_rom("../../../roms/Super Mario Land.gb");
+    read_rom("../../../roms/Dr Mario.gb");
     load_bootrom("../../../roms/DMG_BOOT.bin");
     detect_banking_mode();
 
@@ -816,8 +810,8 @@ int main(int argc, char** argv)
         // Read inputs from SDL
         while (SDL_PollEvent(&event)) {
             if (SDL_PollEvent(&event) && event.type == SDL_QUIT) { 
-                print_registers(); //Print current state.
-                shutdown(); //shutdown.
+                print_registers();
+                shutdown();
                 break;
             }
             handle_input();
@@ -828,6 +822,7 @@ int main(int argc, char** argv)
 
 uint8_t read_byte(uint16_t location) 
 {
+    // If in Bootrom
     if (enable_boot) 
     {
         if (location < 0x100) 
@@ -835,16 +830,20 @@ uint8_t read_byte(uint16_t location)
             return boot_rom[location];
         }        
     }
+
+    // Base Rom Read
     if (location < 0x4000) 
     {
         return rom[location];
     } 
+
+    // Rom Bank Read
     if (location < 0x8000)
     {
         return rom[location + bank_offset * 0x4000];
     }
 
-    //Key interupt.
+    // Key interupt.
     if (location == 0xFF00) 
     { 
         return key_state();
@@ -853,12 +852,14 @@ uint8_t read_byte(uint16_t location)
 }
 
 void write_byte(uint8_t data, uint16_t location) 
-{
+{   
+    // Rom Bank Set
     if (location >= 0x2000 && location <= 0x3FFF) 
     {
         bank_offset = data - 1;
     }
 
+    // Writing to read only memory
     else if (location < 0x8000) 
     {
         return;
@@ -880,7 +881,7 @@ void write_byte(uint8_t data, uint16_t location)
     else if (location == 0xFF04)
     {
         memory[0xFF04] = 0;
-        DividerVariable = 0;
+        divider_count = 0;
     }
 
     else
@@ -907,7 +908,7 @@ void increment_scan_line()
 
     if (Test_bit(7, read_byte(0xFF40)))
     {
-        scanline_count -= Last_cycles;
+        scanline_count -= last_cycles;
     }
     else 
     {
@@ -1112,36 +1113,40 @@ uint8_t key_state()
 }
 
 void update_timers() {
-    uint8_t timerAtts = read_byte(0xFF07);
-    DividerVariable += Last_cycles;
-
-    if (Test_bit(2, timerAtts))
+    // Update Divider Register
+    divider_count += last_cycles;
+    if (divider_count >= 256)
     {
-        TimerVariable += Last_cycles;
+        divider_count = 0;
+        memory[0xFF04] = read_byte(0xFF04) + 1;
+    }    
 
-        if (TimerVariable >= CurrentClockSpeed)
+    // Update Main Timer Clock Speed
+    switch (read_byte(0xFF07) & 0x3)
+    {
+        case 0: curr_clock_speed = 1024; break;
+        case 1: curr_clock_speed = 16;   break;
+        case 2: curr_clock_speed = 64;   break;
+        case 3: curr_clock_speed = 256;  break;
+    }
+
+    // Tick Main Timer
+    if (Test_bit(2, read_byte(0xFF07)))
+    {
+        timer_count += last_cycles;
+
+        if (timer_count >= curr_clock_speed)
         {
-            TimerVariable = 0;
-            bool overflow = false;
-            if (read_byte(0xFF05) == 0xFF)
-            {
-                overflow = true;
-            }
+            timer_count = 0;
             write_byte(read_byte(0xFF05) + 1, 0xFF05);
 
-            if (overflow)
+            if (read_byte(0xFF05) == 0xFF)
             {
                 write_byte(read_byte(0xFF06), 0xFF05);
                 set_interupt(2);
             }
         }
-    }
-
-    if (DividerVariable >= 256)
-    {
-        DividerVariable = 0;
-        memory[0xFF04] = read_byte(0xFF04) + 1;
-    }
+    }    
 }
 
 void initialize_sdl() {
@@ -1251,12 +1256,12 @@ void detect_banking_mode()
 {
     switch (rom[0x147])
     {
-    case 1: mbc1 = true; break;
-    case 2: mbc1 = true; break;
-    case 3: mbc1 = true; break;
-    case 5: mbc2 = true; break;
-    case 6: mbc2 = true; break;
-    default: break;
+        case 1: mbc1 = true; break;
+        case 2: mbc1 = true; break;
+        case 3: mbc1 = true; break;
+        case 5: mbc2 = true; break;
+        case 6: mbc2 = true; break;
+        default: break;
     }
 
     if (mbc1)
@@ -1324,7 +1329,7 @@ void cpu_cycle()
     }
 
     cycle_count += 2 * Cycles[opcode];
-    Last_cycles = 2 * Cycles[opcode];
+    last_cycles = 2 * Cycles[opcode];
 }
 
 void interupts() {
@@ -1386,7 +1391,6 @@ void load_tiles(){
     }
 }
 
-//Renders all the tiles in Memory.
 void render_all_tiles() {
     for (int i = 0; i < 360; i++) 
     {
@@ -1402,7 +1406,6 @@ void render_all_tiles() {
     }
 }
 
-//Renders the Current Tilemap.
 void render_tile_map() 
 {   
     // Check if LCD is enabled
