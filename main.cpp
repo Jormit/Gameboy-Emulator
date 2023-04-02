@@ -40,23 +40,23 @@ long int cycle_count;
 // Stores amount of cycles in last instruction.
 int Last_cycles;
 
-//Current scanline.
-int scanline_count;
-
 bool IME = 0; //Interrupt Master Enable Flag.
 
-//Allocating Space for Memory.
-uint8_t memory[65536] = {0};
-uint8_t* rom;
-uint8_t* boot_rom;
-bool enable_boot = true;
-uint8_t bank_offset = 0;
-uint8_t Tile_Map[384][8][8]; //Stores colors of individual pixels in each tile.
+// Graphics Variables
+int scanline_count;
+uint8_t Tile_Map[384][8][8];
+struct RGB
+{
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+} frameBuffer[23040], colorPalette[4];
 
+// Joypad Variable
 uint8_t JoypadState = 0xFF;
 
+// Memory Variables
 /*
-Memory MAP.
 $FFFF           Interrupt Enable Flag
 $FF80-$FFFE     Zero Page - 127 bytes
 $FF00-$FF7F     Hardware I/O Registers
@@ -74,6 +74,15 @@ $0150-$3FFF     Cartridge ROM - Bank 0 (fixed)
 $0100-$014F     Cartridge Header Area
 $0000-$00FF     Restart and Interrupt Vectors
 */
+
+uint8_t memory[65536] = { 0 };
+uint8_t* rom;
+uint8_t* boot_rom;
+bool enable_boot = true;
+uint8_t bank_offset = 0;
+
+bool mbc1 = false;
+bool mbc2 = false;
 
 // Registers
 struct registers {
@@ -136,105 +145,93 @@ struct instruction
     void (*fcnPtr)();
 };
 
-// Color Struct
-struct RGB 
-{
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-} frameBuffer[23040], colorPalette[4];
-
 // SDL State 
 SDL_Event event;
 SDL_Renderer* renderer;
 SDL_Window* window; 
 SDL_Texture* texture;
+SDL_Surface* icon;
 
-//Function Protoypes.
+// Rom Loading
 void read_rom(char *filename);
 void load_bootrom(char* filename);
 
+// User I/O
 uint8_t key_state(); // Sets up FF00 depending on key presses.
 void key_press(int key); // Does a key press
 void key_release(int key); // Does a key release
 void handle_input(); // Detects key presses.
 
-uint8_t read_byte(uint16_t location); //Read memory at location. 
-void write_byte(uint8_t data, uint16_t location);
+// Memory Operations
+uint8_t read_byte(uint16_t location); // Read memory at location. 
+void write_byte(uint8_t data, uint16_t location); // Write memory at location. 
+void dma_transfer(uint8_t data); // Does a direct memory transfer.
 
-void dma_transfer(uint8_t data); //Does a direct memory transfer.
-
-void cpu_cycle(); //Reads current opcode then executes instruction. Also prints output.
-void print_registers(); //Prints registers info.
-
-//Graphics functions.
-void initialize_sdl(); //Starts SDL Window and render surface.
-void setup_color_pallete(); //Sets up the colours. (Todo: load from rom)
-void load_tiles(); //Loads Tiles into Array Tiles[][x][y].
-void render_tile_map(); //Arranges tiles according to tilemap and displays onto screen.
-void render_all_tiles(); //Test function to render all the tiles onto screen.
-void render_sprites(); //Renders the sprites.
-void display_buffer(); //Loads buffer into texture and renders it.
-void render_graphics(); //Combines above.
-void shutdown(); //Shuts down SDL and exits.
-
-//Interupts functions.
+// CPU Operations
+void cpu_cycle(); // Reads current opcode then executes instruction. Also prints output.
 void interupts(); // Checks if there is any interputs to do and then does them.
 void do_interupt(uint8_t interupt); // Carries out the specified interupt and resets ime.
 void set_interupt(uint8_t interupt); // Allows for interupts to be set.
-
-//Scanline Functions
-void set_lcd_status(); //Sets the lcd status register [0xFF41] according to the current scanline.
-void increment_scan_line();
-
-//Timer Functions.
+void print_registers(); // Prints registers info.
 void update_timers();
 
-// Arithmetic Instructions
-void add_byte(uint8_t value2); //Adds value2 to register a and sets relevent flags.
-uint16_t add_2_byte(uint16_t a, uint16_t b); //Adds a to b and sets relevent flags.
-void sub_byte(uint8_t value); //Subtracts value from register a and sets relevant flags.
+//Graphics functions.
+void initialize_sdl(); // Starts SDL Window and render surface.
+void setup_color_pallete(); // Sets up the colours. (Todo: load from rom)
+void load_tiles(); // Loads Tiles into Array Tiles[][x][y].
+void render_tile_map(); // Arranges tiles according to tilemap and displays onto screen.
+void render_all_tiles(); // Test function to render all the tiles onto screen.
+void render_sprites(); // Renders the sprites.
+void display_buffer(); // Loads buffer into texture and renders it.
+void render_graphics(); // Combines above.
+void shutdown(); // Shuts down SDL and exits.
+void set_lcd_status(); // Sets the lcd status register [0xFF41] according to the current scanline.
+void increment_scan_line(); 
+
+// Arithmetic Instructions (on register a).
+void add_byte(uint8_t value2); // Adds value2 to register a and sets relevent flags.
+uint16_t add_2_byte(uint16_t a, uint16_t b); // Adds a to b and sets relevent flags.
+void sub_byte(uint8_t value); // Subtracts value from register a and sets relevant flags.
 void adc(uint8_t a);
-void cp(uint8_t value); //Compare value with register a setting flags. (Basically subtraction without storing value.)
+void cp(uint8_t value); // Compare value with register a setting flags. (Basically subtraction without storing value.)
 
-uint8_t inc(uint8_t value); //Increment value and set flags.
-uint8_t dec(uint8_t value); //Decrement value and set flags.
+uint8_t inc(uint8_t value); // Increment value and set flags.
+uint8_t dec(uint8_t value); // Decrement value and set flags.
 
-//Rotations.
-uint8_t RotByteLeft(uint8_t number); //Rotate left and set carry flag.
-uint8_t RotByteRight(uint8_t number); //Rotate right and set carry flag.
+// Rotations.
+uint8_t RotByteLeft(uint8_t number); // Rotate left and set carry flag.
+uint8_t RotByteRight(uint8_t number); // Rotate right and set carry flag.
 
-uint8_t Rotate_Left_Carry(uint8_t number); //Rotate left into carry.
-uint8_t Rotate_Right_Carry(uint8_t number); //Rotate right into carry.
+uint8_t Rotate_Left_Carry(uint8_t number); // Rotate left into carry.
+uint8_t Rotate_Right_Carry(uint8_t number); // Rotate right into carry.
 
-//Shifts.
-uint8_t Shift_Left(uint8_t number); //Shift left into carry.
-uint8_t Shift_Right(uint8_t number); //Shift right into carry.
+// Shifts.
+uint8_t Shift_Left(uint8_t number); // Shift left into carry.
+uint8_t Shift_Right(uint8_t number); // Shift right into carry.
 
-uint8_t Shift_Right_A(uint8_t number); //Arithmetic Shift. 
+uint8_t Shift_Right_A(uint8_t number); // Arithmetic Shift. 
 
-//Swap.
-uint8_t Swap(uint8_t number); //Swaps highest 4 bits with lowest 4 bits.
+// Swap.
+uint8_t Swap(uint8_t number); // Swaps highest 4 bits with lowest 4 bits.
 
-//registers.a __ Value. //Sets flags.
-void And(uint8_t a); //register a AND value. 
-void Or(uint8_t a); //register a OR value.
-void Xor(uint8_t a); //register a XOR value.
+// Logic
+void And(uint8_t a); // register a AND value. 
+void Or(uint8_t a); // register a OR value.
+void Xor(uint8_t a); // register a XOR value.
 
-//Stack Instructions.
+// Stack Instructions.
 void Push(uint16_t a); //Places value on top of stack and decrements stack pointer.
 uint16_t Pop(); //Stack value off stack, stores it and increments stack pointer. 
 
-//Bit tests.
+// Bit tests.
 uint8_t Bit_Test(uint8_t bit, uint8_t number);
-
 uint8_t Test_bit(uint8_t bit, uint8_t number); //Doesn't set flags.
 
-//Bit sets.
+// Bit sets.
 uint8_t Res(uint8_t bit, uint8_t number); //Resets specified bit.
 uint8_t Set(uint8_t bit, uint8_t number); //Sets specified bit.
 
-//Flag functions.
+// Flag functions.
 void Set_Z_Flag(); //Set zero flag.
 void Set_N_Flag(); //Set negative flag.
 void Set_H_Flag(); //Set half-carry flag.
@@ -245,7 +242,7 @@ void CLear_N_Flag(); //Clear negative flag.
 void Clear_H_Flag(); //Clear half-carry flag.
 void Clear_C_Flag(); //Clear carry flag.
 
-//Array of structures that uses instruction opcode as index and stores name length and function pointer.
+// Array of structures that uses instruction opcode as index and stores name length and function pointer.
 const struct instruction instructions[] = 
 {
   {"NOP", 1, NOP},                  //    0x0
@@ -506,7 +503,7 @@ const struct instruction instructions[] =
   {"RST", 1, RST_38H},              //    0xff
 };
 
-//Array of structures for cb instruction.
+// Array of structures for cb instruction.
 const struct instruction CB_instructions[] = 
 {
     {"RLC B", 2, RLC_B},            //    0x0
@@ -767,7 +764,7 @@ const struct instruction CB_instructions[] =
     {"SET 7 A", 2, SET_7_A},        //    0xff
 };
 
-//Array storing the cycle length of each instruction / 2;
+// Array storing the cycle length of each instruction / 2;
 const uint8_t Cycles[256] = {
     4, 6, 4, 4, 2, 2, 4, 4, 10, 4, 4, 4, 2, 2, 4, 4, // 0x0_
     2, 6, 4, 4, 2, 2, 4, 4,  4, 4, 4, 4, 2, 2, 4, 4, // 0x1_
@@ -788,10 +785,13 @@ const uint8_t Cycles[256] = {
 };
 
 int main(int argc, char** argv) {
-    read_rom("../../../roms/Tetris.gb");
+    read_rom("../../../roms/DrMario.gb");
     load_bootrom("../../../roms/DMG_BOOT.bin");
+
     setup_color_pallete();
     initialize_sdl();
+
+    int flag = 0;
 
     //Main loop.
     registers.pc = 0;
@@ -799,11 +799,10 @@ int main(int argc, char** argv) {
         cycle_count = 0;
         while (cycle_count < CYCLES_PER_FRAME) 
         {   
-            // Remove bootrom after it has run
             if (registers.pc == 0x100) 
             { 
                 enable_boot = false;
-            }
+            } 
             cpu_cycle();                             
             update_timers();
             increment_scan_line();
@@ -818,7 +817,6 @@ int main(int argc, char** argv) {
                 shutdown(); //shutdown.
                 break;
             }
-
             handle_input();
         }
     }
@@ -833,17 +831,18 @@ uint8_t read_byte(uint16_t location) {
             return boot_rom[location];
         }        
     }
-
     if (location < 0x4000) 
     {
         return rom[location];
     } 
     if (location < 0x8000)
     {
-        return rom[location + 0 * 0x4000];
+        return rom[location + bank_offset * 0x4000];
     }
 
-    if (location == 0xFF00) { //Key interupt.
+    //Key interupt.
+    if (location == 0xFF00) 
+    { 
         return key_state();
     }
     return memory[location];
@@ -853,63 +852,99 @@ void write_byte(uint8_t data, uint16_t location) {
     if (location >= 0x2000 && location <= 0x3FFF) {
         bank_offset = data - 1;
     }
-    if (location < 0x8000) {
+    else if (location < 0x8000) {
         return;
-    }
-    if (location == 0xFF46) {
+    } 
+
+    // Execute DMA
+    else if (location == 0xFF46) {
         dma_transfer(data);
     }
-    memory[location] = data;
+
+    // Reset scanline count
+    else if (location == 0xFF44)
+    {
+        memory[0xFF44] = 0;
+    }
+
+    // Reset the divider register
+    else if (location == 0xFF04)
+    {
+        memory[0xFF04] = 0;
+        DividerVariable = 0;
+    }
+
+    else
+    {
+        memory[location] = data;
+    }    
 }
 
 //Renders the graphics once per frame.
 void render_graphics() {
     SDL_Delay(15);
     setup_color_pallete();
-    load_tiles();   
+    load_tiles();
     render_tile_map();
     render_sprites();
     //render_all_tiles();
     display_buffer();
 }
 
-//Increment the scanline cyle and do relevent procedures.
-void increment_scan_line() {
+void increment_scan_line() 
+{
     set_lcd_status();
 
-    scanline_count -= Last_cycles;
+    if (Test_bit(7, read_byte(0xFF40)))
+    {
+        scanline_count -= Last_cycles;
+    }
+    else 
+    {
+        return;
+    } 
 
     if (scanline_count <= 0) 
     {      
         memory[0xFF44]++;
         scanline_count = 456;
-        if (memory[0xFF44] == 144) //Check if all lines are finished and if so do a VBLANK. 
+        if (read_byte(0xFF44) == 144) //Check if all lines are finished and if so do a VBLANK. 
         {           
             set_interupt(0);
         }
-        else if (memory[0xFF44] > 153) //Reset scanline once it reaches the end.
+        else if (read_byte(0xFF44) > 153) //Reset scanline once it reaches the end.
         { 
             memory[0xFF44] = 0;
         }
     }
 }
 
-//Checks lcd status register and does relevent procedures depending on scanlines etc..
-//TODO: Coincidence flag.
-void set_lcd_status() {
-    uint8_t currentline = memory[0xFF44];
-    uint8_t currentmode = memory[0xFF41] & 0x3;
+void set_lcd_status() 
+{
+    uint8_t currentline = read_byte(0xFF44);
+    uint8_t currentmode = read_byte(0xFF41) & 0x3;
     uint8_t mode = 0;
     bool InteruptRequest = false;
+
+    uint8_t status = read_byte(0xFF41);
+    if (!Test_bit(7, read_byte(0xFF40)))
+    {
+        // set the mode to 1 during lcd disabled and reset scanline
+        scanline_count = 456;
+        memory[0xFF44] = 0;
+        status = Res(1, status);
+        status = Res(0, status);
+        write_byte(status, 0xFF41);
+        return;
+    }
 
     // IF in VBLANK. 
     if (currentline >= 144)
     { 
-        mode = 1; //Set to mode 1.
-        memory[0xFF41] = Set(0, memory[0xFF41]); //Set status to 01.
-        memory[0xFF41] = Res(1, memory[0xFF41]);
-        InteruptRequest = memory[0xFF41] & 0x10;
-
+        mode = 1; //Set status to 01.
+        status = Set(0, status);
+        status = Res(1, status);
+        InteruptRequest = Test_bit(4, status);
     }
     else
     {
@@ -918,33 +953,45 @@ void set_lcd_status() {
 
         if (scanline_count >= mode2bounds) 
         {
-            mode = 2;
-            memory[0xFF41] = Set(1, memory[0xFF41]); //Set status to 10.
-            memory[0xFF41] = Res(0, memory[0xFF41]);
-            InteruptRequest = memory[0xFF41] & 0x20;
-
+            mode = 2; //Set status to 10.
+            status = Set(1, status);
+            status = Res(0, status);
+            InteruptRequest = Test_bit(5, status);
         }
 
         else if (scanline_count >= mode3bounds) 
         {
-            mode = 3;
-            memory[0xFF41] = Set(1, memory[0xFF41]);
-            memory[0xFF41] = Set(0, memory[0xFF41]);
+            mode = 3; //Set status to 11.
+            status = Set(1, status);
+            status = Set(0, status);
         }
 
         else 
         {
-            mode = 0;
-            memory[0xFF41] = Res(1, memory[0xFF41]); //Set status to 00.
-            memory[0xFF41] = Res(0, memory[0xFF41]);
-            InteruptRequest = memory[0xFF41] & 0x8;
+            mode = 0; //Set status to 00.
+            status = Res(1, status);
+            status = Res(0, status);
+            InteruptRequest = Test_bit(3, status);
         }
     }
 
-    if (InteruptRequest && (mode != currentmode)) {
-
+    if (InteruptRequest && (mode != currentmode)) 
+    {
         set_interupt(1);
+    } 
+    if (read_byte(0xFF44) == read_byte(0xFF45))
+    {
+        status = Set(2, status);
+        if (Test_bit(6, status))
+        {
+            set_interupt(1);
+        }
     }
+    else
+    {
+        status = Res(2, status);
+    }
+    write_byte(status, 0xFF41);
 }
 
 void handle_input() {
@@ -1018,11 +1065,11 @@ void key_press(int key)
     bool requestInterupt = false;
 
     //Check which keys game is interested in.
-    if (button && !Test_bit(5, memory[0xFF00]))
+    if (button && !Test_bit(5, read_byte(0xFF00)))
     {
         requestInterupt = true;
     }
-    else if (!button && !Test_bit(4, memory[0xFF00]))
+    else if (!button && !Test_bit(4, read_byte(0xFF00)))
     {
         requestInterupt = true;
     }
@@ -1040,13 +1087,14 @@ uint8_t key_state()
     // flip all the bits
     res ^= 0xFF;
 
-    // are we interested in the standard buttons?
+    // Are we interested in the standard buttons?
     if (!Test_bit(4, res))
     {
         BYTE topJoypad = JoypadState >> 4;
         topJoypad |= 0xF0; // turn the top 4 bits on
         res &= topJoypad; // show what buttons are pressed
     }
+    // Or directional buttons?
     else if (!Test_bit(5, res))//directional buttons
     {
         BYTE bottomJoypad = JoypadState & 0xF;
@@ -1057,7 +1105,7 @@ uint8_t key_state()
 }
 
 void update_timers() {
-    uint8_t timerAtts = memory[0xFF07];
+    uint8_t timerAtts = read_byte(0xFF07);
     DividerVariable += Last_cycles;
 
     if (Test_bit(2, timerAtts))
@@ -1068,15 +1116,15 @@ void update_timers() {
         {
             TimerVariable = 0;
             bool overflow = false;
-            if (memory[0xFF05] == 0xFF)
+            if (read_byte(0xFF05) == 0xFF)
             {
                 overflow = true;
             }
-            memory[0xFF05]++;
+            write_byte(read_byte(0xFF05) + 1, 0xFF05);
 
             if (overflow)
             {
-                memory[0xFF05] = memory[0xFF06];
+                write_byte(read_byte(0xFF06), 0xFF05);
                 set_interupt(2);
             }
         }
@@ -1085,18 +1133,20 @@ void update_timers() {
     if (DividerVariable >= 256)
     {
         DividerVariable = 0;
-        memory[0xFF04]++;
+        memory[0xFF04] = read_byte(0xFF04) + 1;
     }
 }
 
 void initialize_sdl() {
-    SDL_Init(SDL_INIT_VIDEO);
+    SDL_Init(SDL_INIT_VIDEO);    
     SDL_CreateWindowAndRenderer(SCREEN_WIDTH, SCREEN_HEIGHT, 0, &window, &renderer);
+    icon = SDL_LoadBMP("../../../icon.bmp");
+    SDL_SetWindowIcon(window, icon);
     SDL_RenderSetLogicalSize(renderer, SCREEN_WIDTH, SCREEN_HEIGHT);
     texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+    SDL_RenderPresent(renderer);    
 }
 
 void setup_color_pallete() {
@@ -1129,9 +1179,12 @@ void setup_color_pallete() {
     }
 }
 
-//Loads Rom into Memory.
 void read_rom(char *filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        cerr << "Invalid Rom File!" << endl;
+        exit(1);
+    }
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
         
@@ -1141,12 +1194,7 @@ void read_rom(char *filename) {
     {        
         for (auto i = 0; i < size; ++i) 
         {
-            rom[i] = (uint8_t) buffer[i];
-            if (size < 0xFFFF) 
-            {
-                memory[i] = (uint8_t) buffer[i];
-            }
-            
+            rom[i] = (uint8_t) buffer[i];     
         }
         cout << "Loaded " << filename << endl;
     } 
@@ -1159,6 +1207,11 @@ void read_rom(char *filename) {
 
 void load_bootrom(char* filename) {
     std::ifstream file(filename, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        cerr << "Invalid Bootrom File!" << endl;
+        exit(1);
+    }
+
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
 
@@ -1245,14 +1298,14 @@ void cpu_cycle()
 void interupts() {
     if (IME)
     {
-        uint8_t requestFlag = memory[0xFF0F];
-        if (requestFlag > 0)
+        uint8_t requestFlag = read_byte(0xFF0F);
+        if (requestFlag)
         {
             for (int bit = 0; bit < 8; bit++)
             {
                 if (requestFlag & (0x1 << bit))
                 {
-                    BYTE enabledReg = memory[0xFFFF];
+                    BYTE enabledReg = read_byte(0xFFFF);
                     if (enabledReg & (0x1 << bit))
                     {
                         do_interupt(bit);
@@ -1265,7 +1318,7 @@ void interupts() {
 
 void do_interupt(uint8_t interupt) {
     IME = 0; 
-    memory[0xFF0F] = Res(interupt, memory[0xFF0F]);
+    write_byte(Res(interupt, read_byte(0xFF0F)), 0xFF0F);
     Push(registers.pc);   
 
     switch (interupt) {
@@ -1277,7 +1330,7 @@ void do_interupt(uint8_t interupt) {
 }
 
 void set_interupt(uint8_t interupt) {
-    memory[0xFF0F] = Set(interupt, memory[0xFF0F]);
+    write_byte(Set(interupt, read_byte(0xFF0F)), 0xFF0F);
 }
 
 void load_tiles(){   
@@ -1292,7 +1345,7 @@ void load_tiles(){
             Rel_x = 0;
             while(Rel_x < 8){                
                 bitIndex = 1 << (7 - Rel_x);
-                Tile_Map[s][Rel_x][Rel_y] = (memory[0x8000 + 2*Rel_y + 16*s] & bitIndex ? 1:0) + ((memory[0x8000 + 1 + 2*Rel_y + 16*s] & bitIndex ) ? 2:0);                
+                Tile_Map[s][Rel_x][Rel_y] = (read_byte(0x8000 + 2*Rel_y + 16*s) & bitIndex ? 1:0) + ((read_byte(0x8000 + 1 + 2*Rel_y + 16*s) & bitIndex ) ? 2:0);
                 Rel_x++;             
             }
             Rel_y++;       
@@ -1325,19 +1378,19 @@ void render_tile_map()
     int location;
     bool unsig = true;
 
-    uint8_t ScrollY = memory[0xFF42];
-    uint8_t ScrollX = memory[0xFF43];
-    uint8_t WindowY = memory[0xFF4A];
-    uint8_t WindowX = memory[0xFF4B];
+    uint8_t ScrollY = read_byte(0xFF42);
+    uint8_t ScrollX = read_byte(0xFF43);
+    uint8_t WindowY = read_byte(0xFF4A);
+    uint8_t WindowX = read_byte(0xFF4B);
 
     // Which tile data?
-    if (!Test_bit(4, memory[0xFF40])) 
+    if (!Test_bit(4, read_byte(0xFF40)))
     {
         unsig = false;
     }
 
     // Check which tilemap to render.
-    if (memory[0xFF40] & 0x8) 
+    if (read_byte(0xFF40) & 0x8)
     {
         location = 0x9C00;
     }
@@ -1355,9 +1408,9 @@ void render_tile_map()
             {
                 for (int y = 0; y < 8; y++) 
                 {
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
                 }
             }
             Line_Count++;
@@ -1375,9 +1428,9 @@ void render_tile_map()
             {
                 for (int y = 0; y < 8; y++) 
                 {
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[0x100 + (signed char)memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[0x100 + (signed char)memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
-                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[0x100 + (signed char)memory[location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8)]][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].red;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].green;
+                    frameBuffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue = colorPalette[Tile_Map[0x100 + (signed char)read_byte(location + i + Map_Offset + (ScrollX + x) / 8 + 32 * ((ScrollY + y) / 8))][(ScrollX + x) % 8][(y + ScrollY) % 8]].blue;
                 }
             }
             Line_Count++;
@@ -1392,15 +1445,15 @@ void render_tile_map()
 
 void render_sprites() 
 {
-    bool use8x16 = Test_bit(2, memory[0xFF40]) != 0; //Check if sprites are 8x16 or 8x8.
+    bool use8x16 = Test_bit(2, read_byte(0xFF40)) != 0; //Check if sprites are 8x16 or 8x8.
 
     for (int sprite = 0; sprite < 40; sprite++)
     {
         uint8_t index = sprite * 4;
-        uint8_t ypos = memory[0xFE00 + index] - 16;
-        uint8_t xpos = memory[0xFE00 + index + 1] - 8;
-        uint8_t location = memory[0xFE00 + index + 2];
-        uint8_t attributes = memory[0xFE00 + index + 3];
+        uint8_t ypos = read_byte(0xFE00 + index) - 16;
+        uint8_t xpos = read_byte(0xFE00 + index + 1) - 8;
+        uint8_t location = read_byte(0xFE00 + index + 2);
+        uint8_t attributes = read_byte(0xFE00 + index + 3);
 
         bool yflip = Test_bit(6, attributes);
         bool xflip = Test_bit(5, attributes);
@@ -1829,14 +1882,14 @@ uint8_t Set(uint8_t bit, uint8_t number)
 void Push(uint16_t a) 
 {
     registers.sp -= 2;
-    memory[registers.sp] = (uint8_t)((a >> 8) & 0x00FF);
-    memory[registers.sp + 1] = (uint8_t)(a & 0x00FF);
+    write_byte((uint8_t)((a >> 8) & 0x00FF), registers.sp);
+    write_byte((uint8_t)(a & 0x00FF), registers.sp + 1);
 }
 
 uint16_t Pop() 
 {
     uint16_t a;
-    a = (memory[registers.sp] << 8) + memory[registers.sp + 1];
+    a = (read_byte(registers.sp) << 8) + read_byte(registers.sp + 1);
     registers.sp += 2;
     return a;
 }
@@ -1879,8 +1932,8 @@ void RLCA() //    0x7
 }
 void LD_a16p_SP() //    0x8
 {
-    memory[Operand16] = (uint8_t)(registers.sp & 0x00FF);
-    memory[Operand16 + 1] = (uint8_t)((registers.sp >> 8) & 0x00FF);
+    write_byte((uint8_t)(registers.sp & 0x00FF), Operand16);
+    write_byte((uint8_t)((registers.sp >> 8) & 0x00FF), Operand16 + 1);
 }
 void ADD_HL_BC() //    0x9
 {
@@ -2090,11 +2143,11 @@ void INC_SP() //    0x33
 }
 void INC_HLp() //    0x34
 {
-    memory[registers.hl] = inc(memory[registers.hl]);
+    write_byte(inc(read_byte(registers.hl)), registers.hl);
 }
 void DEC_HLp() //    0x35
 {
-    memory[registers.hl] = dec(memory[registers.hl]);
+    write_byte(dec(read_byte(registers.hl)), registers.hl);
 }
 void LD_HLp_d8() //    0x36
 {
@@ -2647,7 +2700,7 @@ void CP_L() //    0xbd
 }
 void CP_HLp() //    0xbe
 {
-    cp(memory[registers.hl]);
+    cp(read_byte(registers.hl));
 }
 void CP_A() //    0xbf
 {
