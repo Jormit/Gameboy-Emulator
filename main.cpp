@@ -155,6 +155,7 @@ SDL_Surface* icon;
 // Rom Loading
 void read_rom(char *filename);
 void load_bootrom(char* filename);
+void detect_banking_mode();
 
 // User I/O
 uint8_t key_state(); // Sets up FF00 depending on key presses.
@@ -784,9 +785,11 @@ const uint8_t Cycles[256] = {
     6, 6, 4, 2, 0, 8, 4, 8,  6, 4, 8, 2, 0, 0, 4, 8  // 0xf_
 };
 
-int main(int argc, char** argv) {
-    read_rom("../../../roms/DrMario.gb");
+int main(int argc, char** argv) 
+{
+    read_rom("../../../roms/Tetris.gb");
     load_bootrom("../../../roms/DMG_BOOT.bin");
+    detect_banking_mode();
 
     setup_color_pallete();
     initialize_sdl();
@@ -823,7 +826,8 @@ int main(int argc, char** argv) {
     shutdown();
 }
 
-uint8_t read_byte(uint16_t location) {
+uint8_t read_byte(uint16_t location) 
+{
     if (enable_boot) 
     {
         if (location < 0x100) 
@@ -848,16 +852,21 @@ uint8_t read_byte(uint16_t location) {
     return memory[location];
 }
 
-void write_byte(uint8_t data, uint16_t location) {
-    if (location >= 0x2000 && location <= 0x3FFF) {
+void write_byte(uint8_t data, uint16_t location) 
+{
+    if (location >= 0x2000 && location <= 0x3FFF) 
+    {
         bank_offset = data - 1;
     }
-    else if (location < 0x8000) {
+
+    else if (location < 0x8000) 
+    {
         return;
-    } 
+    }
 
     // Execute DMA
-    else if (location == 0xFF46) {
+    else if (location == 0xFF46) 
+    {
         dma_transfer(data);
     }
 
@@ -881,7 +890,8 @@ void write_byte(uint8_t data, uint16_t location) {
 }
 
 //Renders the graphics once per frame.
-void render_graphics() {
+void render_graphics() 
+{
     SDL_Delay(15);
     setup_color_pallete();
     load_tiles();
@@ -1240,6 +1250,31 @@ void dma_transfer(uint8_t data) {
     }
 }
 
+void detect_banking_mode()
+{
+    switch (rom[0x147])
+    {
+    case 1: mbc1 = true; break;
+    case 2: mbc1 = true; break;
+    case 3: mbc1 = true; break;
+    case 5: mbc2 = true; break;
+    case 6: mbc2 = true; break;
+    default: break;
+    }
+
+    if (mbc1)
+    {
+        cout << "Using MBC1" << endl;
+    }
+
+    if (mbc2)
+    {
+        cout << "Using MBC2" << endl;
+    }
+
+    printf("Number of RAM banks: %d\n", rom[0x148]);
+}
+
 //Used for Debugging. (Prints out Registers)
 void print_registers() 
 {
@@ -1373,6 +1408,11 @@ void render_all_tiles() {
 //Renders the Current Tilemap.
 void render_tile_map() 
 {
+    if (!Test_bit(7, read_byte(0xFF40))) 
+    {
+        return;
+    }
+
     int Map_Offset = 0;
     int Line_Count = 0;
     int location;
