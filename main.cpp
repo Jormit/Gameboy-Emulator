@@ -166,7 +166,7 @@ void update_timers();
 void initialize_sdl();       // Starts SDL Window and render surface.
 void setup_color_pallete();  // Sets up the colours. (Todo: load from rom)
 void load_tiles();           // Loads Tiles into Array Tiles[][x][y].
-void render_tile_map();      // Arranges tiles according to tilemap and displays
+void render_tile_map_line();      // Arranges tiles according to tilemap and displays
 // onto
 // screen.
 void render_all_tiles();  // Test function to render all the tiles onto screen.
@@ -880,9 +880,7 @@ void render_graphics() {
 	SDL_Delay(15);
 	setup_color_pallete();
 	load_tiles();
-	render_tile_map();
 	render_sprites();
-	// render_all_tiles();
 	display_buffer();
 }
 
@@ -897,15 +895,14 @@ void increment_scan_line() {
 	}
 
 	if (scanline_count <= 0) {
+		render_tile_map_line();
 		memory[0xFF44]++;
 		scanline_count = 456;
-		if (read_byte(0xFF44) ==
-			144)  // Check if all lines are finished and if so do a VBLANK.
+		if (read_byte(0xFF44) == 144)  // Check if all lines are finished and if so do a VBLANK.
 		{
 			set_interupt(0);
 		}
-		else if (read_byte(0xFF44) >
-			153)  // Reset scanline once it reaches the end.
+		else if (read_byte(0xFF44) > 153)  // Reset scanline once it reaches the end.
 		{
 			memory[0xFF44] = 0;
 		}
@@ -1386,22 +1383,24 @@ void render_all_tiles() {
 	for (int i = 0; i < 360; i++) {
 		for (int x = 0; x < 8; x++) {
 			for (int y = 0; y < 8; y++) {
-				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x] =
-					color_palette[Tile_Map[i][x][y]];
+				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x] = color_palette[Tile_Map[i][x][y]];
 			}
 		}
 	}
 }
 
-void render_tile_map() {
+void render_tile_map_line() {
 	// Check if LCD is enabled
 	if (!test_bit(7, read_byte(0xFF40))) {
 		return;
 	}
 
-	int Map_Offset = 0;
-	int Line_Count = 0;
-	int location;
+	uint8_t currentline = read_byte(0xFF44);
+
+	if (currentline >= SCREEN_HEIGHT) {
+		return;
+	}
+
 	bool unsig = true;
 
 	uint8_t ScrollY = read_byte(0xFF42);
@@ -1415,6 +1414,7 @@ void render_tile_map() {
 	}
 
 	// Check which tilemap to render.
+	int location;
 	if (test_bit(3, read_byte(0xFF40))) {
 		location = 0x9C00;
 	}
@@ -1422,43 +1422,22 @@ void render_tile_map() {
 		location = 0x9800;
 	}
 
-	// Render the tilemap
-	if (unsig) {
-		for (int i = 0; i < 360; i++) {
-			for (int x = 0; x < 8; x++) {
-				for (int y = 0; y < 8; y++) {
-					frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x] =
-						color_palette[Tile_Map[read_byte(location + i + Map_Offset +
-							(ScrollX + x) / 8 +
-							32 * ((ScrollY + y) / 8))]
-						[(ScrollX + x) % 8][(y + ScrollY) % 8]];
-				}
-			}
-			Line_Count++;
-			if (Line_Count == 20) {
-				Line_Count = 0;
-				Map_Offset += 12;
-			}
+	int yPos = currentline + ScrollY;
+	int tileRow = yPos / 8 * 32;
+
+	for (int pixel = 0; pixel < 160; pixel++) {
+		int xPos = pixel + ScrollX;
+		int tileColumn = xPos / 8;
+
+		int tileNum;
+		if (unsig) {
+			tileNum = read_byte(location + tileRow + tileColumn);
 		}
-	}
-	else {
-		for (int i = 0; i < 360; i++) {
-			for (int x = 0; x < 8; x++) {
-				for (int y = 0; y < 8; y++) {
-					frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x] =
-						color_palette[Tile_Map[0x100 + (signed char)read_byte(
-							location + i + Map_Offset +
-							(ScrollX + x) / 8 +
-							32 * ((ScrollY + y) / 8))]
-						[(ScrollX + x) % 8][(y + ScrollY) % 8]];
-				}
-			}
-			Line_Count++;
-			if (Line_Count == 20) {
-				Line_Count = 0;
-				Map_Offset += 12;
-			}
+		else {
+			tileNum = (signed char)read_byte(location + tileRow + tileColumn) + 0x100;
 		}
+
+		frame_buffer[currentline][pixel] = color_palette[Tile_Map[tileNum][xPos % 8][yPos % 8]];
 	}
 }
 
@@ -1495,8 +1474,7 @@ void render_sprites() {
 // Copies frame_buffer to texture. Copies texture to renderer and then displays
 // it.
 void display_buffer() {
-	SDL_UpdateTexture(texture, NULL, frame_buffer,
-		SCREEN_WIDTH * sizeof(uint8_t) * 3);
+	SDL_UpdateTexture(texture, NULL, frame_buffer, SCREEN_WIDTH * sizeof(uint8_t) * 3);
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
