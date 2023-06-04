@@ -1386,12 +1386,8 @@ void render_all_tiles() {
 	for (int i = 0; i < 360; i++) {
 		for (int x = 0; x < 8; x++) {
 			for (int y = 0; y < 8; y++) {
-				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].red =
-					color_palette[Tile_Map[i][x][y]].red;
-				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].green =
-					color_palette[Tile_Map[i][x][y]].green;
-				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].blue =
-					color_palette[Tile_Map[i][x][y]].blue;
+				frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x] =
+					color_palette[Tile_Map[i][x][y]];
 			}
 		}
 	}
