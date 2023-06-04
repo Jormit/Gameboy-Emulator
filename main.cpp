@@ -43,7 +43,7 @@ struct RGB {
   uint8_t red;
   uint8_t green;
   uint8_t blue;
-} frame_buffer[23040], color_palette[4];
+} frame_buffer[SCREEN_HEIGHT][SCREEN_WIDTH], color_palette[4];
 
 // Joypad Variable
 uint8_t joypad_state = 0xFF;
@@ -1370,11 +1370,11 @@ void render_all_tiles() {
   for (int i = 0; i < 360; i++) {
     for (int x = 0; x < 8; x++) {
       for (int y = 0; y < 8; y++) {
-        frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red =
+        frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].red =
             color_palette[Tile_Map[i][x][y]].red;
-        frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green =
+        frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].green =
             color_palette[Tile_Map[i][x][y]].green;
-        frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue =
+        frame_buffer[(y + i * 8 / 160 * 8)][(i * 8 % 160) + x].blue =
             color_palette[Tile_Map[i][x][y]].blue;
       }
     }
@@ -1414,19 +1414,19 @@ void render_tile_map() {
     for (int i = 0; i < 360; i++) {
       for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].red =
               color_palette[Tile_Map[read_byte(location + i + Map_Offset +
                                                (ScrollX + x) / 8 +
                                                32 * ((ScrollY + y) / 8))]
                                     [(ScrollX + x) % 8][(y + ScrollY) % 8]]
                   .red;
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].green =
               color_palette[Tile_Map[read_byte(location + i + Map_Offset +
                                                (ScrollX + x) / 8 +
                                                32 * ((ScrollY + y) / 8))]
                                     [(ScrollX + x) % 8][(y + ScrollY) % 8]]
                   .green;
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].blue =
               color_palette[Tile_Map[read_byte(location + i + Map_Offset +
                                                (ScrollX + x) / 8 +
                                                32 * ((ScrollY + y) / 8))]
@@ -1444,21 +1444,21 @@ void render_tile_map() {
     for (int i = 0; i < 360; i++) {
       for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].red =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].red =
               color_palette[Tile_Map[0x100 + (signed char)read_byte(
                                                  location + i + Map_Offset +
                                                  (ScrollX + x) / 8 +
                                                  32 * ((ScrollY + y) / 8))]
                                     [(ScrollX + x) % 8][(y + ScrollY) % 8]]
                   .red;
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].green =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].green =
               color_palette[Tile_Map[0x100 + (signed char)read_byte(
                                                  location + i + Map_Offset +
                                                  (ScrollX + x) / 8 +
                                                  32 * ((ScrollY + y) / 8))]
                                     [(ScrollX + x) % 8][(y + ScrollY) % 8]]
                   .green;
-          frame_buffer[(i * 8 % 160) + x + (y + i * 8 / 160 * 8) * 160].blue =
+          frame_buffer[y + i * 8 / 160 * 8][i * 8 % 160 + x].blue =
               color_palette[Tile_Map[0x100 + (signed char)read_byte(
                                                  location + i + Map_Offset +
                                                  (ScrollX + x) / 8 +
@@ -1497,15 +1497,15 @@ void render_sprites() {
     for (int x = 0; x < 8; x++) {
       for (int y = 0; y < 8; y++) {
         if (Tile_Map[location][abs(8 * xflip - x)][abs(8 * yflip - y)]) {
-          frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].red =
+          frame_buffer[(y + ypos) % SCREEN_HEIGHT][(xpos + x) % SCREEN_WIDTH].red =
               color_palette[Tile_Map[location][abs(8 * xflip - x)]
                                     [abs(8 * yflip - y)]]
                   .red;
-          frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].green =
+          frame_buffer[(y + ypos) % SCREEN_HEIGHT][(xpos + x) % SCREEN_WIDTH].green =
               color_palette[Tile_Map[location][abs(8 * xflip - x)]
                                     [abs(8 * yflip - y)]]
                   .green;
-          frame_buffer[(xpos + x + (y + ypos) * 160) % 23040].blue =
+          frame_buffer[(y + ypos) % SCREEN_HEIGHT][(xpos + x) % SCREEN_WIDTH].blue =
               color_palette[Tile_Map[location][abs(8 * xflip - x)]
                                     [abs(8 * yflip - y)]]
                   .blue;
