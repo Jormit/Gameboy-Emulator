@@ -781,7 +781,7 @@ const uint8_t Cycles[256] = {
 };
 
 int main(int argc, char** argv) {
-	read_rom("../../../roms/Super Mario Land.gb");
+	read_rom("../../../roms/Wario Land.gb");
 	load_bootrom("../../../roms/DMG_BOOT.bin");
 	detect_banking_mode();
 
@@ -1434,7 +1434,7 @@ void render_tile_map_line() {
 	}
 
 	int yPos = currentline + ScrollY;
-	int tileRow = yPos / 8 * 32;
+	int tileRow = (yPos / 8) % 32 * 32;
 
 	int pixel = 0;
 	// Draw non-windowed component
