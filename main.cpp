@@ -788,8 +788,6 @@ int main(int argc, char** argv) {
 	setup_color_pallete();
 	initialize_sdl();
 
-	int flag = 0;
-
 	// Main loop.
 	registers.pc = 0;
 	while (1) {
