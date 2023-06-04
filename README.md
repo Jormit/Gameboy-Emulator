@@ -7,7 +7,7 @@ Work in progress Gameboy emulator in C. In its current state all the CPU instruc
 ## Dr Mario
 ![image](https://user-images.githubusercontent.com/15094591/234553817-c9ec2c8b-bdff-4207-ae03-92ebfe0c0dfe.png) ![image](https://user-images.githubusercontent.com/15094591/234553779-70d1de5c-9cbd-45cc-91ef-804efe997336.png)
 
-## Super Mario World
+## Super Mario Land
 ![image](https://github.com/Jormit/Gameboy-Emulator/assets/15094591/9957f43e-9246-4182-a2a9-512f13e66e80) ![image](https://github.com/Jormit/Gameboy-Emulator/assets/15094591/5e51fa5b-badf-4a91-a090-e760aa951047)
 
 
