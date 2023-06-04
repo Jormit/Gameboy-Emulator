@@ -781,7 +781,7 @@ const uint8_t Cycles[256] = {
 };
 
 int main(int argc, char** argv) {
-	read_rom("../../../roms/Dr Mario.gb");
+	read_rom("../../../roms/Super Mario Land.gb");
 	load_bootrom("../../../roms/DMG_BOOT.bin");
 	detect_banking_mode();
 
@@ -803,7 +803,6 @@ int main(int argc, char** argv) {
 			increment_scan_line();
 			interupts();
 		}
-		render_graphics();
 
 		// Read inputs from SDL
 		while (SDL_PollEvent(&event)) {
@@ -900,6 +899,7 @@ void increment_scan_line() {
 		scanline_count = 456;
 		if (read_byte(0xFF44) == 144)  // Check if all lines are finished and if so do a VBLANK.
 		{
+			render_graphics();
 			set_interupt(0);
 		}
 		else if (read_byte(0xFF44) > 153)  // Reset scanline once it reaches the end.
@@ -1427,14 +1427,14 @@ void render_tile_map_line() {
 
 	for (int pixel = 0; pixel < 160; pixel++) {
 		int xPos = pixel + ScrollX;
-		int tileColumn = xPos / 8;
+		int tileColumn = (xPos / 8) % 32;
 
 		int tileNum;
 		if (unsig) {
 			tileNum = read_byte(location + tileRow + tileColumn);
 		}
 		else {
-			tileNum = (signed char)read_byte(location + tileRow + tileColumn) + 0x100;
+			tileNum = (signed char) read_byte(location + tileRow + tileColumn) + 0x100;
 		}
 
 		frame_buffer[currentline][pixel] = color_palette[Tile_Map[tileNum][xPos % 8][yPos % 8]];
