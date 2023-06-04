@@ -1362,15 +1362,15 @@ void load_tiles() {
 	int Rel_y = 0;
 	int bitIndex;
 
+	int location = 0x8000;
+
 	while (s < 384) {
 		Rel_y = 0;
 		while (Rel_y < 8) {
 			Rel_x = 0;
 			while (Rel_x < 8) {
 				bitIndex = 1 << (7 - Rel_x);
-				Tile_Map[s][Rel_x][Rel_y] =
-					(read_byte(0x8000 + 2 * Rel_y + 16 * s) & bitIndex ? 1 : 0) +
-					((read_byte(0x8000 + 1 + 2 * Rel_y + 16 * s) & bitIndex) ? 2 : 0);
+				Tile_Map[s][Rel_x][Rel_y] = (read_byte(location + 2 * Rel_y + 16 * s) & bitIndex ? 1 : 0) + ((read_byte(location + 1 + 2 * Rel_y + 16 * s) & bitIndex) ? 2 : 0);
 				Rel_x++;
 			}
 			Rel_y++;
@@ -1401,16 +1401,21 @@ void render_tile_map_line() {
 		return;
 	}
 
-	bool unsig = true;
-
 	uint8_t ScrollY = read_byte(0xFF42);
 	uint8_t ScrollX = read_byte(0xFF43);
 	uint8_t WindowY = read_byte(0xFF4A);
 	uint8_t WindowX = read_byte(0xFF4B);
 
 	// Which tile data?
+	bool unsig = true;
 	if (!test_bit(4, read_byte(0xFF40))) {
 		unsig = false;
+	}
+
+	// Are we using windowing?
+	bool windowingEnabled = false;
+	if (test_bit(5, read_byte(0xFF40))) {
+		windowingEnabled = true;
 	}
 
 	// Check which tilemap to render.
@@ -1422,10 +1427,23 @@ void render_tile_map_line() {
 		location = 0x9800;
 	}
 
+	int window_location;
+	if (test_bit(6, read_byte(0xFF40))) {
+		window_location = 0x9C00;
+	}
+	else {
+		window_location = 0x9800;
+	}
+
 	int yPos = currentline + ScrollY;
 	int tileRow = yPos / 8 * 32;
 
-	for (int pixel = 0; pixel < 160; pixel++) {
+	int pixel = 0;
+	// Draw non-windowed component
+	for (; pixel < 160; pixel++) {
+		if (windowingEnabled && pixel >= WindowX && currentline >= WindowY) {
+			break;
+		}
 		int xPos = pixel + ScrollX;
 		int tileColumn = (xPos / 8) % 32;
 
@@ -1434,7 +1452,24 @@ void render_tile_map_line() {
 			tileNum = read_byte(location + tileRow + tileColumn);
 		}
 		else {
-			tileNum = (signed char) read_byte(location + tileRow + tileColumn) + 0x100;
+			tileNum = (signed char)read_byte(location + tileRow + tileColumn) + 0x100;
+		}
+
+		frame_buffer[currentline][pixel] = color_palette[Tile_Map[tileNum][xPos % 8][yPos % 8]];
+	}
+
+	// Draw windowed component
+	yPos = currentline - WindowY;
+	tileRow = yPos / 8 * 32;
+	for (; pixel < 160; pixel++) {
+		int xPos = pixel - WindowX;
+		int tileColumn = (xPos / 8) % 32;
+		int tileNum;
+		if (unsig) {
+			tileNum = read_byte(window_location + tileRow + tileColumn);
+		}
+		else {
+			tileNum = (signed char)read_byte(window_location + tileRow + tileColumn) + 0x100;
 		}
 
 		frame_buffer[currentline][pixel] = color_palette[Tile_Map[tileNum][xPos % 8][yPos % 8]];
