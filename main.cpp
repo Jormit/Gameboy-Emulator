@@ -149,24 +149,21 @@ void handle_input();        // Detects key presses.
 // Memory Operations
 uint8_t read_byte(uint16_t location);              // Read memory at location.
 void write_byte(uint8_t data, uint16_t location);  // Write memory at location.
-void dma_transfer(uint8_t data);  // Does a direct memory transfer.
+void dma_transfer(uint8_t data);                   // Does a direct memory transfer.
 
 // CPU Operations
-void cpu_cycle();  // Reads current opcode then executes instruction. Also
-// prints
-// output.
+void cpu_cycle();  // Reads current opcode then executes instruction. Also prints output.
 void interupts();  // Checks if there is any interputs to do and then does them.
-void do_interupt(
-	uint8_t interupt);  // Carries out the specified interupt and resets ime.
-void set_interupt(uint8_t interupt);  // Allows for interupts to be set.
-void print_registers();               // Prints registers info.
+void do_interupt(uint8_t interupt);    // Carries out the specified interupt and resets ime.
+void set_interupt(uint8_t interupt);   // Allows for interupts to be set.
+void print_registers();                // Prints registers info.
 void update_timers();
 
 // Graphics functions.
 void initialize_sdl();       // Starts SDL Window and render surface.
 void setup_color_pallete();  // Sets up the colours. (Todo: load from rom)
 void load_tiles();           // Loads Tiles into Array Tiles[][x][y].
-void render_tile_map_line();      // Arranges tiles according to tilemap and displays
+void render_tile_map_line(); // Arranges tiles according to tilemap and displays
 // onto
 // screen.
 void render_all_tiles();  // Test function to render all the tiles onto screen.
@@ -180,15 +177,11 @@ void set_lcd_status();    // Sets the lcd status register [0xFF41] according to
 void increment_scan_line();
 
 // Arithmetic Instructions (on register a).
-void add_byte(
-	uint8_t value2);  // Adds value2 to register a and sets relevent flags.
-uint16_t add_2_byte(uint16_t a,
-	uint16_t b);  // Adds a to b and sets relevent flags.
-void sub_byte(
-	uint8_t value);  // Subtracts value from register a and sets relevant flags.
+void add_byte(uint8_t value2);                // Adds value2 to register a and sets relevent flags.
+uint16_t add_2_byte(uint16_t a,	uint16_t b);  // Adds a to b and sets relevent flags.
+void sub_byte(uint8_t value);                 // Subtracts value from register a and sets relevant flags.
 void adc(uint8_t a);
-void cp(uint8_t value);  // Compare value with register a setting flags.
-// (Basically subtraction without storing value.)
+void cp(uint8_t value);  // Compare value with register a setting flags. (Basically subtraction without storing value)
 
 uint8_t inc(uint8_t value);  // Increment value and set flags.
 uint8_t dec(uint8_t value);  // Decrement value and set flags.
@@ -215,10 +208,8 @@ void Or(uint8_t a);   // register a OR value.
 void Xor(uint8_t a);  // register a XOR value.
 
 // Stack Instructions.
-void Push(
-	uint16_t a);  // Places value on top of stack and decrements stack pointer.
-uint16_t Pop();   // Stack value off stack, stores it and increments stack
-// pointer.
+void Push(uint16_t a);  // Places value on top of stack and decrements stack pointer.
+uint16_t Pop();         // Stack value off stack, stores it and increments stack pointer.
 
 // Bit tests.
 uint8_t Bit_Test(uint8_t bit, uint8_t number);
@@ -892,15 +883,18 @@ void increment_scan_line() {
 	}
 
 	if (scanline_count <= 0) {
+		// Render tilemap line if scanline is completed.
 		render_tile_map_line();
 		memory[0xFF44]++;
 		scanline_count = 456;
-		if (read_byte(0xFF44) == 144)  // Check if all lines are finished and if so do a VBLANK.
+		// Check if all lines are finished and if so do a VBLANK.
+		if (read_byte(0xFF44) == 144)  
 		{
 			render_graphics();
 			set_interupt(0);
 		}
-		else if (read_byte(0xFF44) > 153)  // Reset scanline once it reaches the end.
+		// Reset scanline once it reaches the end.
+		else if (read_byte(0xFF44) > 153)  
 		{
 			memory[0xFF44] = 0;
 		}
@@ -1153,7 +1147,6 @@ void setup_color_pallete() {
 	uint8_t color;
 	for (int i = 0; i < 4; i++) {
 		color = ((0x3 << 2 * i) & memory[0xFF47]) >> 2 * i;
-
 		switch (color) {
 		case (0x0):
 			color_palette[i].red = 255;
@@ -1475,8 +1468,7 @@ void render_tile_map_line() {
 }
 
 void render_sprites() {
-	bool use8x16 =
-		test_bit(2, read_byte(0xFF40)) != 0;  // Check if sprites are 8x16 or 8x8.
+	bool use8x16 = test_bit(2, read_byte(0xFF40)) != 0; 
 
 	for (int sprite = 0; sprite < 40; sprite++) {
 		uint8_t index = sprite * 4;
@@ -1504,8 +1496,7 @@ void render_sprites() {
 	}
 }
 
-// Copies frame_buffer to texture. Copies texture to renderer and then displays
-// it.
+// Copies frame_buffer to texture. Copies texture to renderer and then displays it.
 void display_buffer() {
 	SDL_UpdateTexture(texture, NULL, frame_buffer, SCREEN_WIDTH * sizeof(uint8_t) * 3);
 	SDL_RenderClear(renderer);
@@ -1522,21 +1513,37 @@ void shutdown() {
 }
 
 // Functions to Set Flags.
-void Set_Z_Flag() { registers.f = registers.f | 0x80; }
+void Set_Z_Flag() { 
+	registers.f = registers.f | 0x80;
+}
 
-void Set_N_Flag() { registers.f = registers.f | 0x40; }
+void Set_N_Flag() {
+	registers.f = registers.f | 0x40;
+}
 
-void Set_H_Flag() { registers.f = registers.f | 0x20; }
+void Set_H_Flag() { 
+	registers.f = registers.f | 0x20;
+}
 
-void Set_C_Flag() { registers.f = registers.f | 0x10; }
+void Set_C_Flag() {
+	registers.f = registers.f | 0x10; 
+}
 
-void Clear_Z_Flag() { registers.f = registers.f & 0x7F; }
+void Clear_Z_Flag() { 
+	registers.f = registers.f & 0x7F; 
+}
 
-void Clear_N_Flag() { registers.f = registers.f & 0xBF; }
+void Clear_N_Flag() { 
+	registers.f = registers.f & 0xBF; 
+}
 
-void Clear_H_Flag() { registers.f = registers.f & 0xDF; }
+void Clear_H_Flag() {
+	registers.f = registers.f & 0xDF; 
+}
 
-void Clear_C_Flag() { registers.f = registers.f & 0xEF; }
+void Clear_C_Flag() {
+	registers.f = registers.f & 0xEF; 
+}
 
 // Normal rotates (Set carry flag).
 uint8_t RotByteLeft(uint8_t number) {
